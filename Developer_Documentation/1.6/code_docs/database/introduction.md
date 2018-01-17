@@ -31,5 +31,5 @@ becomes:
 
 <pre>
   $result = $db->Execute(some query) 
-  $data = $row['fieldname'];
+  $data = $result['fieldname'];
 </pre> 
