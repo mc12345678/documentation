@@ -1,6 +1,6 @@
 # How do I add additional images to a product?
 
-## A product owns 1 filename ...
+## A product owns 1 image filename ...
 
 _Note: the_ **_base image name is the original image name loaded for the product._  
 
@@ -17,7 +17,11 @@ Now you use your FTP program to upload additional images to <font color="#ff0000
 *   a_bugs_life_03.gif
 *   a_bugs_life_04.gif
 
-I used the numbers so these would load in order, as the additional images are loaded alpha/numeric.  
+I used the numbers so these would load in order, as the additional images are loaded alpha/numeric.
+
+If instead you want to load all of these images through your admin interface for the product, the last file loaded or stored
+as the path to the image (dvd/a_bugs_life.gif) is what will be captured as the 1 image filename for the product and all of the
+above images will be the additional image(s).
 
 For the large image (used in popups) I use FTP and upload:  
 
@@ -143,6 +147,9 @@ b. You can edit the _MED and _LRG defined suffixes in Admin->Configuration->Imag
 It is wise to **NOT use the following symbols** in your image filenames: 
 
 <font color="#ff0000">**+ [ ] $ ' " \ / ()  **</font>  
+
+It is also advised not to use spaces within the image filename or capital letters for the file suffix (ie. use .jpg instead of
+.JPG)
 
 Also, in case it's not self-evident, the files have to actually exist on your server. So, if you're selecting the "Use an image on the server" instead of uploading a file directly, and things aren't showing up, then that probably means the image file you specified doesn't actually exist on the server.  
 
