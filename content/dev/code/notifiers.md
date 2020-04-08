@@ -86,15 +86,35 @@ Some notes about the parameters...the attach method has two parameters:
 *   &$observer - Reference to the observer class, used to generated a unique ID for the new listener
 *   $eventIDArray - An array of notifiers that this observer is listening for
 
-The update method is passed three parameters. These are:
+Prior to Zen Cart 1.5.3, the update method is passed only three parameters. These are:
 
 *   &$callingClass - This is a reference to the class in which the event occurred, allowing you access to that class's variables
 *   $notifier - The name of the notifier that triggered the update (It is quite possible to observe more than one notifier)
-*   $paramsArray - Not Used Yet (for future)
+*   $paramsArray - Made available in Zen Cart 1.5.x and represents data that is passed to the notifier for read access only.
 
 NB! The observer/notifier system is written for an OOP-based application, as the observer expects to attach to a class that has notifiers within its methods. However a lot of the code within Zen Cart is still procedural in nature and not contained within a class.
 
-To work around this, we added the 'stub' notifier class. So if you want to create an observer for a notifier that lies within procedural code (like in page headers) you should add the notifier into your myObserver class like this:
+To further help with managing the information made available by the notifier system and specifically to manipulate data within methods of classes where variables are local, as of Zen Cart 1.5.3 up to 8 additional variables have been made available in a standard install.  These additional variables are parameters made available to the notifier.
+
+Another change that was introduced into Zen Cart 1.5.3 and above was the ability to execute a class method that is identified using the notifier name as part of the method name.  This is done by camelcasing the notifier which is to split the notifier name into the words between each underscore, capitalizing the first letter of each of those words and then combining them into a single word with the prefix of update.  So the method for the notifier `NOTIFIER_CART_ADD_CART_END` could be `updateNotifierCartAddCartEnd` which is to take `NOTIFIER_CART_ADD_CART_END` split it up into 5 words, capitalize each and combining to give `NotifierCartAddCartEnd` and then to add the prefix `update` to give `updateNotifierCartAddCartEnd`.  In Zen Cart 1.5.3 and above, if both the camelcased method and the `update` method exist in an observer class, then the camelcased method will be called.  If the notifier code is applied to a system that does not recognize the camelcased method of execution, then the `update` method will be called.
+
+Therefore as of Zen Cart 1.5.3, the update method (or its camelcased observer method) is passed the following:
+
+*   &$callingClass - This is a reference to the class in which the event occurred, allowing you access to that class's variables
+*   $notifier - The name of the notifier that triggered the update (It is quite possible to observe more than one notifier)
+*   $paramsArray - Made available in Zen Cart 1.5.x and represents data that is passed to the notifier for read access only.
+*   &$param2 - Made available beginning in Zen Cart 1.5.3 and allows access to edit the variable that is passed.
+*   &$param3 - Made available beginning in Zen Cart 1.5.3 and allows access to edit the variable that is passed.
+*   &$param4 - Made available beginning in Zen Cart 1.5.3 and allows access to edit the variable that is passed.
+*   &$param5 - Made available beginning in Zen Cart 1.5.3 and allows access to edit the variable that is passed.
+*   &$param6 - Made available beginning in Zen Cart 1.5.3 and allows access to edit the variable that is passed.
+*   &$param7 - Made available beginning in Zen Cart 1.5.3 and allows access to edit the variable that is passed.
+*   &$param8 - Made available beginning in Zen Cart 1.5.3 and allows access to edit the variable that is passed.
+*   &$param9 - Made available beginning in Zen Cart 1.5.3 and allows access to edit the variable that is passed.
+
+Note that as of Zen Cart 1.5.3, if a parameter is not identified in the notifier that the value of the parameter will be null.  Prior to Zen Cart 1.5.3, no value will be passed and if the observer class method does not have a default value, then an error will be thrown and execution stopped.
+
+To work around the procedural versus class monitoring of the notifier class, we added the 'stub' notifier class. So if you want to create an observer for a notifier that lies within procedural code (like in page headers) you should add the notifier into your myObserver class like this:
 
 ```
 class myObserver extends base {
@@ -104,9 +124,18 @@ class myObserver extends base {
    }
 ```
 
+As of Zen Cart 1.5.3, because $zco_notifier represents a class that extends the base class, the procedural code notifiers can be accessed the same way as those in other classes so the above can be written as:
+
+```
+class myObserver extends base {
+   function __construct() {
+     $this->attach($this, array('NOTIFY_HEADER_END_CHECKOUT_CONFIRMATION'));
+   }
+```
+
 ### Including observers into your code
 
-Please note that the `includes/classes/observers` directory is not an autoload directory, so you will need to arrange for `application_top.php` to autoload your observer class as was described above (add a new `config.xxxxx.php` file in the `auto_loaders` folder, etc). Let's assume you are using the freeProduct class (see the example below), and you have saved this in `includes/classes/observers/class.freeProduct.php`.
+Please note that the `includes/classes/observers` directory is not an autoload directory, so you will need to arrange for `application_top.php` to autoload your observer class as was described above (add a new `config.xxxxx.php` file in the `auto_loaders` folder, etc). Let's assume you are using the freeProduct class (see the example below), and you have saved this in `includes/classes/observers/class.freeProduct.php`.  The prefix to the file (e.g. `config.`) should align with what is assigned to `$loaderPrefix` within `includes/application_top.php` which is by default set to `config`.
 
 You now need to arrange for this class to be loaded and instantiated. To do this you need to use the `application_top.php` autoload system.
 
@@ -120,7 +149,7 @@ $autoLoadConfig[90][] = array('autoType'=>'classInstantiate',
                               'objectName'=>'freeProduct');
 ```
 
-Note: 10 has been chosen to cause the observer class to be loaded before the session is started. Note: 90 has been chosen as the offset since the observer needs to attach to the `$_SESSION['cart']` class (see the freeProduct example below), which is instantiated at offset 80.
+Note: 10 has been chosen to cause the observer class to be loaded before the session is started. Note: 90 has been chosen as the offset since the observer (see the freeProduct example below) needs to be identified before the notifier (attached to `$_SESSION['cart']` instantiated at offset 80) is executed (e.g. in `includes/init_cart_handler.php`). If the observer was to execute within the construction/instatiation of the class, then it would need to load in a sequence before the class was instantiated.
 
 To tie this all together, let's look at a real world example.
 
@@ -164,7 +193,7 @@ class freeProduct extends base {
    * Attaches our class to the $_SESSION['cart'] class and watches for 2 notifier events.
    */
   function __construct() {
-    $_SESSION['cart']->attach($this, array('NOTIFIER_CART_ADD_CART_END', 'NOTIFIER_CART_REMOVE_END'));
+    $_SESSION['cart']->attach($this, array('NOTIFIER_CART_ADD_CART_END', 'NOTIFIER_CART_REMOVE_END', 'NOTIFIER_CART_RESET_END'));
   }
   /**
    * Update Method
@@ -176,28 +205,38 @@ class freeProduct extends base {
    */
   function update(&$class, $eventID, $paramsArray = array()) {
 
-  if ($eventID == 'NOTIFIER_CART_REMOVE_END' && (isset($_SESSION['freeProductInCart']) && $_SESSION['freeProductInCart'] == TRUE ))
+  // If a product has been removed from the cart and the free product has been identified as being in the cart.
+  if ($eventID == 'NOTIFIER_CART_REMOVE_END' && !empty($_SESSION['freeProductInCart']))
   {
+    // If the free product is not in the cart, then it was the item that was removed, set a flag to indicate it was removed.
     if (!$_SESSION['cart']->in_cart($this->freeProductID))
     {
-      $_SESSION['userRemovedFreeProduct'] = TRUE;
+      $_SESSION['userRemovedFreeProduct'] = true;
     }
   }
 
-  if (!isset($_SESSION['userRemovedFreeProduct']) || $_SESSION['userRemovedFreeProduct'] != TRUE) 
+  // If any notifier observed by this class has been triggered and there is no indication that the user removed the free product.
+  //  Effectively this allows the customer to remove the product and have it not get auto-added back, but also to support auto-adding it.
+  if (empty($_SESSION['userRemovedFreeProduct'])) 
   {
+    // If the cart total meets the threshold for the free item and the free product is not in the cart:
+    //   add it and set an indicator that it is present.
     if ($_SESSION['cart']->show_total() >= $this->freeAmount && !$_SESSION['cart']->in_cart($this->freeProductID) )   
     {
       $_SESSION['cart']->add_cart($this->freeProductID);
-      $_SESSION['freeProductInCart'] = TRUE;  
+      $_SESSION['freeProductInCart'] = true;  
     }
   }
 
+  // If any notifier observed by this class has been triggered and the threshold for the free item is not yet reached AND the free item is in the cart, then remove it.
   if ($_SESSION['cart']->show_total() < $this->freeAmount && $_SESSION['cart']->in_cart($this->freeProductID) ) 
   {
     $_SESSION['cart']->remove($this->freeProductID);
+    unset($_SESSION['freeProductInCart']); // Free product is no longer in the cart.
+    unset($_SESSION['userRemovedFreeProduct']); // User did not specifically request the product be removed, but was removed by circumstances thus allowing it to reappear when threshold met again.
   }
 
+  // If any notifier observed by this class has been triggered and the free item is in the cart, be sure that quantity is set to a specific number.
   if ($_SESSION['cart']->in_cart($this->freeProductID)) 
   {
     $_SESSION['cart']->contents[$this->freeProductID]['qty'] = 1;
@@ -212,23 +251,23 @@ A couple notes:
 
 First, I have set the options for the system in the class itself. This is obviously a bad idea, and it would be much better to have an admin module to set these options.
 
-Second, notice that we are actually watching for two events in the one class.
+Second, notice that we are actually watching for three events in the one class.
 
 ```
-$_SESSION['cart']->attach($this, array('NOTIFIER_CART_ADD_CART_END', 'NOTIFIER_CART_REMOVE_END'));
+$_SESSION['cart']->attach($this, array('NOTIFIER_CART_ADD_CART_END', 'NOTIFIER_CART_REMOVE_END', NOTIFIER_CART_RESET_END'));
 ```
 
-so we are watching for the `NOTIFIER_CART_ADD_CART_END` and `NOTIFIER_CART_REMOVE_END` of the shopping_cart class.
+so we are watching for the `NOTIFIER_CART_ADD_CART_END`, `NOTIFIER_CART_REMOVE_END`, and `NOTIFIER_CART_RESET_END` of the shopping_cart class.
 
-The update class is extremely simple but in its simplicity manages to do all the work we require of it. It first tests to see if the total in the cart is over the threshold and, if it hasn't already, adds the free product to the cart.
+The update class is extremely simple but in its simplicity manages to do all the work we require of it. It first tests to see if the total in the cart is over the threshold and, if it hasn't already, adds the free product to the cart. It also "remembers" if the customer has specifically removed the free product and if so, prevents auto-matically adding it back. Further when the content in the cart toggles around the threshold the product is removed and added back (although will do so even if the user had previously purposefully removed the product).
 
-It then tests to see if the cart total has dropped below the threshold and, if the free product is in the cart, removes it.
+It then tests to see if the cart total has dropped below the threshold and, if the free product is in the cart, removes it and prepares to allow auto-adding it back when the cart total exceeds the threshold.
 
 Now that was cool, how about something a little more difficult.
 
 ### Another Real World Example
 
-Again we return to the Shopping Cart and promotions. Another oft-requested feature is the BOGOF promotion, or Buy One Get One Free. This is a little more difficult to achieve than our previous example, as there is some manipulation needed of the cart totals. However as you will see it is still pretty much a breeze.
+Again we return to the Shopping Cart and promotions. Another oft-requested feature is the BOGOF promotion, or Buy One Get One Free. This is a little more difficult to achieve than our previous example, as there is some manipulation needed of the cart totals. However, as you will see it is still pretty much a breeze.
 
 ```
 <?php
@@ -310,7 +349,46 @@ Secondly this will probably produce a confusing output at checkout.
 
 Third: Have not tested for tax compliance yet ( @TODO )
 
-### Mods which support Notifier Use 
+Some development strategies include:
+* in the `__construct` method, instead of listing a lengthy array grouping, the notifiers can be added to an array and that array be used in the attach method:
+```
+class myObserver extends base {
+   function __construct() {
+     $attachArray = array();
+     $attachArray[] = 'NOTIFIER_CART_ADD_CART_END';
+     $attachArray[] = 'NOTIFIER_CART_REMOVE_END';
+     $attachArray[] = 'NOTIFIER_CART_RESET_END';
+     
+     $this->attach($this, $attachArray);
+   }
+   function update(&$callingClass, $notifier, $paramsArray) {
+     ... do some stuff
+   }
+ }
+ ```
+
+OR as a single array statement.
+
+```
+class myObserver extends base {
+   function __construct() {
+     $attachArray = array(
+                    'NOTIFIER_CART_ADD_CART_END',
+                    'NOTIFIER_CART_REMOVE_END',
+                    'NOTIFIER_CART_RESET_END',
+                    )
+     
+     $this->attach($this, $attachArray);
+   }
+   function update(&$callingClass, $notifier, $paramsArray) {
+     ... do some stuff
+   }
+ }
+ ```
+Either method allows adding/removing notifiers from the list in an understandable visually recognizable way that can simplify review/edit.
+
+
+### Mods which support Notifier Use Development 
 A number of mods are provided which can be helpful during development when using notifiers: 
 
 * [Zen Cart Notifier Report](https://www.zen-cart.com/downloads.php?do=file&id=2260)
