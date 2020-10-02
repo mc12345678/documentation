@@ -37,7 +37,7 @@ These become:
 ./zc_plugins/ModList/1.4.0/admin/includes/extra_configures/mod_list.php
 ./zc_plugins/ModList/1.4.0/admin/mod_list.php
 ```
-**Note** It is not necessary to rename admin in the plugin directory hierarchy 
+**Note** For maximum ZC compatibility, it is recommended to not rename admin in the plugin directory hierarchy. Further, the code should not use admin/catalog constants to identify plugin file paths.
 
 ### 2. Add the Manifest 
 
@@ -115,6 +115,16 @@ Some options for overcoming this are:
 
 - Make the variables into defined constants (which by definition have global scope). 
 
+- Access the variables as a `$_GLOBAL` variable. (e.g. `$_GLOBAL['my_list']`)
+
 b) Explicit `include` or `require` of storefront files 
+
+c) Use of defined constants for accessing plugin files
+
+The constants declared by the Zen Cart load process are relative to the local installation of that system,
+the constant may include a path to a folder or structure that is not part of a default installation,
+using those constants to locate/access files within the plugin may result in the file(s) not being found.
+
+If the plugin is to access files within the default Zen Cart store, then using the store's defined constants would be appropriate.
 
 TBD 
